@@ -1,4 +1,7 @@
+#include <cstring>
 #include <editline/readline.h>
+#include <libvdb/error.hpp>
+#include <libvdb/process.hpp>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -12,6 +15,25 @@
 #include <vector>
 
 namespace {
+
+void
+print_stop_reason(const vdb::Process& process, vdb::StopReason reason)
+{
+  std::cout << "Process " << process.pid() << ' ';
+
+  switch (reason.reason) {
+    case vdb::ProcessState::exited:
+      std::cout << "exited with status " << static_cast<int>(reason.info);
+      break;
+    case vdb::ProcessState::terminated:
+      std::cout << "terminated with signal " << sigabbrev_np(reason.info);
+      break;
+    case vdb::ProcessState::stopped:
+      std::cout << "stopped with signal " << sigabbrev_np(reason.info);
+      break;
+  }
+  std::cout << std::endl;
+}
 
 std::vector<std::string>
 split(std::string_view str, char delimiter)
@@ -30,89 +52,64 @@ split(std::string_view str, char delimiter)
 bool
 is_prefix(std::string_view str, std::string_view of)
 {
-  if (str.size() > of.size()) {
-    return false;
-  }
-  return std::equal(str.begin(), str.end(), of.begin());
+  return of.starts_with(str); // std::equal(str.begin(), str.end(), of.begin());
 }
 
 void
-resume(pid_t pid)
-{
-  if (ptrace(PTRACE_CONT, pid, nullptr, nullptr) < 0) {
-    std::cerr << "Couldn't continue\n";
-    std::exit(-1);
-  }
-}
-
-void
-wait_on_signal(pid_t pid)
-{
-  int wait_status;
-  int options{ 0 };
-
-  if (waitpid(pid, &wait_status, options) < 0) {
-    std::perror("waitpid failed");
-    std::exit(-1);
-  }
-}
-
-void
-handle_command(pid_t pid, std::string_view line)
+handle_command(std::unique_ptr<vdb::Process>& process, std::string_view line)
 {
   auto args{ split(line, ' ') };
-  if (args.empty()) {
-    std::cerr << "No arguments\n";
-    return;
-  }
   auto command{ args[0] };
 
   if (is_prefix(command, "continue")) {
-    resume(pid);
-    wait_on_signal(pid);
+    process->resume();
+    auto reason{ process->wait_on_signal() };
+    print_stop_reason(*process, reason);
   } else {
     std::cerr << "Unknown command\n";
   }
 }
 
-pid_t
+std::unique_ptr<vdb::Process>
 attach(int argc, const char** argv)
 {
-  pid_t pid{ 0 };
   // passing PID
   if (argc == 3 && argv[1] == std::string_view("-p")) {
-    pid = std::atoi(argv[2]);
-    if (pid <= 0) {
-      std::cerr << "Invalid pid\n";
-      return -1;
-    }
-    if (ptrace(PTRACE_ATTACH, pid, /*addr=*/nullptr, /*data=*/nullptr) < 0) {
-      std::perror("Could not attach");
-      return -1;
-    } else {
-      // passing program name
-      const char* program_path{ argv[1] };
-      if ((pid = fork()) < 0) {
-        std::perror("fork failed");
-        return -1;
+    pid_t pid = std::atoi(argv[2]);
+    return vdb::Process::attach(pid);
+  } else {
+    // passing program name
+    const char* program_path{ argv[1] };
+    return vdb::Process::launch(program_path);
+  }
+}
+
+void
+main_loop(std::unique_ptr<vdb::Process>& process)
+{
+  char* line{ nullptr };
+  while ((line = readline("vdb> ")) != nullptr) {
+    std::string line_str;
+
+    if (line == std::string_view("")) {
+      free(line);
+      if (history_length > 0) {
+        line_str = history_list()[history_length - 1]->line;
       }
+    } else {
+      line_str = line;
+      add_history(line);
+      free(line);
+    }
 
-      if (pid == 0) {
-        // In child process
-        // Execute debugee
-        if (ptrace(PTRACE_TRACEME, 0, nullptr, nullptr) < 0) {
-          std::perror("Tracing failed");
-          return -1;
-        }
-
-        if (execlp(program_path, program_path, nullptr) < 0) {
-          std::perror("Exec failed");
-          return -1;
-        }
+    if (!line_str.empty()) {
+      try {
+        handle_command(process, line_str);
+      } catch (const vdb::Error& err) {
+        std::cout << err.what() << '\n';
       }
     }
   }
-  return pid;
 }
 
 } // namespace
@@ -125,31 +122,10 @@ main(int argc, const char** argv)
     return -1;
   }
 
-  pid_t pid = attach(argc, argv);
-
-  int wait_status;
-  int options{ 0 };
-  if (waitpid(pid, &wait_status, options) < 0) {
-    std::perror("waitpid failed");
-  }
-
-  char* line{ nullptr };
-  while ((line = readline("vdb> ")) != nullptr) {
-    std::string line_str;
-
-    if (line_str == std::string_view("")) {
-      free(line);
-      if (history_length > 0) {
-        line_str = history_list()[history_length - 1]->line;
-      } else {
-        line_str = line;
-        add_history(line);
-        free(line);
-      }
-
-      if (!line_str.empty()) {
-        handle_command(pid, line_str);
-      }
-    }
+  try {
+    auto process{ attach(argc, argv) };
+    main_loop(process);
+  } catch (const vdb::Error& err) {
+    std::cout << err.what() << '\n';
   }
 }
