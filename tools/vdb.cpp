@@ -1,4 +1,3 @@
-#include <cstring>
 #include <editline/readline.h>
 #include <libvdb/error.hpp>
 #include <libvdb/process.hpp>
@@ -7,7 +6,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -30,6 +28,9 @@ print_stop_reason(const vdb::Process& process, vdb::StopReason reason)
       break;
     case vdb::ProcessState::stopped:
       std::cout << "stopped with signal " << sigabbrev_np(reason.info);
+      break;
+    case vdb::ProcessState::running:
+      std::cout << "is running";
       break;
   }
   std::cout << std::endl;
