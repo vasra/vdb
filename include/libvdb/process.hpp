@@ -31,7 +31,8 @@ public:
   Process& operator=(const Process& other) = delete;
   ~Process();
 
-  static std::unique_ptr<Process> launch(std::filesystem::path path);
+  static std::unique_ptr<Process> launch(std::filesystem::path path,
+                                         bool debug = true);
   static std::unique_ptr<Process> attach(pid_t pid);
 
   void resume();
@@ -40,13 +41,15 @@ public:
   ProcessState state() const { return state_; }
 
 private:
-  Process(pid_t pid, bool terminate_on_end)
+  Process(pid_t pid, bool terminate_on_end, bool is_attached)
     : pid_(pid)
     , terminate_on_end_(terminate_on_end)
+    , is_attached_(is_attached)
   {
   }
 
   pid_t pid_{ 0 };
+  bool is_attached_{ true };
   bool terminate_on_end_{ false };
   ProcessState state_{ ProcessState::stopped };
 };

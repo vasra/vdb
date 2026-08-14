@@ -52,7 +52,7 @@ split(std::string_view str, char delimiter)
 bool
 is_prefix(std::string_view str, std::string_view of)
 {
-  return of.starts_with(str); // std::equal(str.begin(), str.end(), of.begin());
+  return of.starts_with(str);
 }
 
 void
