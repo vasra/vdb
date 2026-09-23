@@ -1,20 +1,26 @@
-#include <libvdb/error.hpp>
-#include <libvdb/pipe.hpp>
-#include <libvdb/process.hpp>
-#include <memory>
+module;
+
+#include <cerrno>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+module vdb.process;
+
+import vdb.error;
+import vdb.pipe;
+
+import std;
+
 namespace {
 
-void
-exit_with_perror(vdb::Pipe& channel, const std::string& prefix)
+auto
+exit_with_perror(vdb::Pipe& channel, const std::string& prefix) -> void
 {
   auto message{ prefix + ": " + std::strerror(errno) };
   channel.write(reinterpret_cast<std::byte*>(message.data()), message.size());
-  exit(-1);
+  std::exit(-1);
 }
 
 } // anonumous namespace
@@ -53,8 +59,9 @@ vdb::Process::~Process()
   }
 }
 
-std::unique_ptr<vdb::Process>
+auto
 vdb::Process::launch(std::filesystem::path path, bool debug)
+  -> std::unique_ptr<vdb::Process>
 {
   Pipe channel(/*close_on_exec*/ true);
   pid_t pid;
@@ -91,8 +98,8 @@ vdb::Process::launch(std::filesystem::path path, bool debug)
   return proc;
 }
 
-std::unique_ptr<vdb::Process>
-vdb::Process::attach(pid_t pid)
+auto
+vdb::Process::attach(pid_t pid) -> std::unique_ptr<vdb::Process>
 {
   if (pid == 0) {
     Error::send("Invalid PID");
@@ -108,8 +115,8 @@ vdb::Process::attach(pid_t pid)
   return proc;
 }
 
-void
-vdb::Process::resume()
+auto
+vdb::Process::resume() -> void
 {
   if (ptrace(PTRACE_CONT, pid_, nullptr, nullptr) < 0) {
     Error::send_errno("Could not resume");
@@ -117,8 +124,8 @@ vdb::Process::resume()
   state_ = ProcessState::running;
 }
 
-vdb::StopReason
-vdb::Process::wait_on_signal()
+auto
+vdb::Process::wait_on_signal() -> vdb::StopReason
 {
   int wait_status;
   int options{ 0 };

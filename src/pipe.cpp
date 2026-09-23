@@ -1,8 +1,13 @@
+module;
+
 #include <fcntl.h>
-#include <libvdb/error.hpp>
-#include <libvdb/pipe.hpp>
 #include <unistd.h>
-#include <utility>
+
+module vdb.pipe;
+
+import vdb.error;
+
+import std;
 
 vdb::Pipe::Pipe(bool close_on_exec)
 {
@@ -17,20 +22,20 @@ vdb::Pipe::~Pipe()
   close_write();
 }
 
-int
-vdb::Pipe::release_read()
+auto
+vdb::Pipe::release_read() -> int
 {
   return std::exchange(fds_[read_fd], -1);
 }
 
-int
-vdb::Pipe::release_write()
+auto
+vdb::Pipe::release_write() -> int
 {
   return std::exchange(fds_[write_fd], -1);
 }
 
-void
-vdb::Pipe::close_read()
+auto
+vdb::Pipe::close_read() -> void
 {
   if (fds_[read_fd] != -1) {
     close(fds_[read_fd]);
@@ -38,8 +43,8 @@ vdb::Pipe::close_read()
   }
 }
 
-void
-vdb::Pipe::close_write()
+auto
+vdb::Pipe::close_write() -> void
 {
   if (fds_[write_fd] != -1) {
     close(fds_[write_fd]);
@@ -47,8 +52,8 @@ vdb::Pipe::close_write()
   }
 }
 
-std::vector<std::byte>
-vdb::Pipe::read()
+auto
+vdb::Pipe::read() -> std::vector<std::byte>
 {
   char buf[1024];
   int chars_read;
@@ -60,8 +65,8 @@ vdb::Pipe::read()
   return std::vector<std::byte>(bytes, bytes + chars_read);
 }
 
-void
-vdb::Pipe::write(std::byte* from, std::size_t bytes)
+auto
+vdb::Pipe::write(std::byte* from, std::size_t bytes) -> void
 {
   if (::write(fds_[write_fd], from, bytes) < 0) {
     Error::send_errno("Could not write to pipe");

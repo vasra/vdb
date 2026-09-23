@@ -1,22 +1,24 @@
-#ifndef VDB_ERROR_HPP
-#define VDB_ERROR_HPP
+module;
 
-#include <cstring>
-#include <stdexcept>
+#include <cerrno>
 
-namespace vdb {
+export module vdb.error;
+
+import std;
+
+export namespace vdb {
 
 class Error : public std::runtime_error
 {
 public:
   [[noreturn]]
-  static void send(const std::string& what)
+  static auto send(const std::string& what) -> void
   {
     throw Error(what);
   }
 
   [[noreturn]]
-  static void send_errno(const std::string& prefix)
+  static auto send_errno(const std::string& prefix) -> void
   {
     throw Error(prefix + ": " + std::strerror(errno));
   }
@@ -29,4 +31,3 @@ private:
 };
 
 } // vdb
-#endif

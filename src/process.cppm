@@ -1,11 +1,12 @@
-#ifndef VDB_PROCESS_HPP
-#define VDB_PROCESS_HPP
+module;
 
-#include <filesystem>
-#include <memory>
 #include <sys/types.h>
 
-namespace vdb {
+export module vdb.process;
+
+import std;
+
+export namespace vdb {
 
 enum class ProcessState
 {
@@ -28,17 +29,17 @@ class Process
 public:
   Process() = delete;
   Process(const Process&) = delete;
-  Process& operator=(const Process& other) = delete;
+  Process& operator=(const Process&) = delete;
   ~Process();
 
-  static std::unique_ptr<Process> launch(std::filesystem::path path,
-                                         bool debug = true);
-  static std::unique_ptr<Process> attach(pid_t pid);
+  static auto launch(std::filesystem::path path, bool debug = true)
+    -> std::unique_ptr<Process>;
+  static auto attach(pid_t pid) -> std::unique_ptr<Process>;
 
-  void resume();
-  StopReason wait_on_signal();
-  pid_t pid() const { return pid_; }
-  ProcessState state() const { return state_; }
+  auto resume() -> void;
+  auto wait_on_signal() -> StopReason;
+  auto pid() const -> pid_t { return pid_; }
+  auto state() const -> ProcessState { return state_; }
 
 private:
   Process(pid_t pid, bool terminate_on_end, bool is_attached)
@@ -55,4 +56,3 @@ private:
 };
 
 } // vdb
-#endif
