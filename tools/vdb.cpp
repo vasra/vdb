@@ -1,6 +1,7 @@
 #include <editline/readline.h>
 // #include <libvdb/error.hpp>
 // #include <libvdb/process.hpp>
+#include <string.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -19,30 +20,29 @@ import std;
 
 namespace {
 
-void
-print_stop_reason(const vdb::Process& process, vdb::StopReason reason)
+auto
+print_stop_reason(const vdb::Process& process, vdb::StopReason reason) -> void
 {
-  std::cout << "Process " << process.pid() << ' ';
+  std::print("Process {} ", process.pid());
 
   switch (reason.reason) {
     case vdb::ProcessState::exited:
       std::println("exited with status {}", static_cast<int>(reason.info));
       break;
     case vdb::ProcessState::terminated:
-      std::cout << "terminated with signal " << sigabbrev_np(reason.info);
+      std::println("terminated with signal {}", sigabbrev_np(reason.info));
       break;
     case vdb::ProcessState::stopped:
-      std::cout << "stopped with signal " << sigabbrev_np(reason.info);
+      std::println("stopped with signal {}", sigabbrev_np(reason.info));
       break;
     case vdb::ProcessState::running:
-      std::cout << "is running";
+      std::println("is running");
       break;
   }
-  std::cout << std::endl;
 }
 
-std::vector<std::string>
-split(std::string_view str, char delimiter)
+auto
+split(std::string_view str, char delimiter) -> std::vector<std::string>
 {
   std::vector<std::string> out{};
   std::stringstream ss{ std::string{ str } };
@@ -55,14 +55,15 @@ split(std::string_view str, char delimiter)
   return out;
 }
 
-bool
-is_prefix(std::string_view str, std::string_view of)
+auto
+is_prefix(std::string_view str, std::string_view of) -> bool
 {
   return of.starts_with(str);
 }
 
-void
+auto
 handle_command(std::unique_ptr<vdb::Process>& process, std::string_view line)
+  -> void
 {
   auto args{ split(line, ' ') };
   auto command{ args[0] };
@@ -76,8 +77,8 @@ handle_command(std::unique_ptr<vdb::Process>& process, std::string_view line)
   }
 }
 
-std::unique_ptr<vdb::Process>
-attach(int argc, const char** argv)
+auto
+attach(int argc, const char** argv) -> std::unique_ptr<vdb::Process>
 {
   // passing PID
   if (argc == 3 && argv[1] == std::string_view("-p")) {
@@ -90,29 +91,29 @@ attach(int argc, const char** argv)
   }
 }
 
-void
-main_loop(std::unique_ptr<vdb::Process>& process)
+auto
+main_loop(std::unique_ptr<vdb::Process>& process) -> void
 {
   char* line{ nullptr };
   while ((line = readline("vdb> ")) != nullptr) {
     std::string line_str;
 
     if (line == std::string_view("")) {
-      free(line);
+      std::free(line);
       if (history_length > 0) {
         line_str = history_list()[history_length - 1]->line;
       }
     } else {
       line_str = line;
       add_history(line);
-      free(line);
+      std::free(line);
     }
 
     if (!line_str.empty()) {
       try {
         handle_command(process, line_str);
       } catch (const vdb::Error& err) {
-        std::cout << err.what() << '\n';
+        std::println("{}", err.what());
       }
     }
   }
@@ -120,8 +121,8 @@ main_loop(std::unique_ptr<vdb::Process>& process)
 
 } // namespace
 
-int
-main(int argc, const char** argv)
+auto
+main(int argc, const char** argv) -> int
 {
   if (argc == 1) {
     std::cerr << "No arguments given\n";
@@ -132,6 +133,6 @@ main(int argc, const char** argv)
     auto process{ attach(argc, argv) };
     main_loop(process);
   } catch (const vdb::Error& err) {
-    std::cout << err.what() << '\n';
+    std::println("{}", err.what());
   }
 }
