@@ -21,7 +21,6 @@ include(CTest)
 add_subdirectory("src")
 add_subdirectory("tools")
 
-set(BUILD_TESTING OFF) # REMEMBER TO REMOVEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 if(BUILD_TESTING)
   find_package(Catch2 CONFIG REQUIRED)
   add_subdirectory("test")

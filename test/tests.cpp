@@ -1,16 +1,18 @@
 #include <catch2/catch_test_macros.hpp>
-#include <fstream>
-#include <libvdb/error.hpp>
-#include <libvdb/process.hpp>
 #include <signal.h>
 #include <sys/types.h>
+
+import vdb.error;
+import vdb.process;
+
+import std;
 
 using namespace vdb;
 
 namespace {
 
-char
-get_process_status(pid_t pid)
+auto
+get_process_status(pid_t pid) -> char
 {
   std::ifstream stat("/proc/" + std::to_string(pid) + "/stat");
   std::string data;
@@ -20,8 +22,8 @@ get_process_status(pid_t pid)
   return data[index_of_status_indicator];
 }
 
-bool
-process_exists(pid_t pid)
+auto
+process_exists(pid_t pid) -> bool
 {
   auto ret{ kill(pid, 0) };
   return ret != -1 && errno != ESRCH;
